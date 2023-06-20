@@ -9,14 +9,10 @@ from torch.utils.data import Dataset, DataLoader
 class Pretrained(nn.Module):
     def __init__(self):
         super(Pretrained, self).__init__()
-        self.conv = nn.Conv1d(in_channels=1, out_channels=16, kernel_size=3)
-        self.fc = nn.Linear(16, 1)
+
 
     def forward(self, x):
-        x = self.conv(x)
-        x = torch.relu(x)
-        x = torch.mean(x, dim=2)
-        x = self.fc(x)
+        ..
         return x
 
 
