@@ -11,11 +11,12 @@ from TCN import TemporalConvNet
 
 # 自定义预训练模型（TCN+实例对比）
 class Pretrained(nn.Module):
-    def __init__(self, args, channels, temporal_unit = 0, ):
+    def __init__(self, args, channels, temporal_unit = 0, device='cpu'):
         super(Pretrained, self).__init__()
         self.conv = nn.Conv1d(in_channels=1, out_channels=16, kernel_size=3)
         self.temporal_unit = temporal_unit
         self.net = Encoder(channels, args.input_dim, args, args.hidden_dim)
+        self.device = device
 
     def forward(self, x):
         ts_l = x.size(1)
@@ -149,14 +150,18 @@ if __name__ == '__main__':
     parser.add_argument('--learning_rate', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--dropout', default=0.2, type=float)
     parser.add_argument('--data_name', default='data/10.0.210.11.tps.csv', type=str, help='dataset')
+    parser.add_argument('--device', default='cpu', type=str)
     args = parser.parse_args()
+    
+    if not torch.cuda.is_available():
+        args.device = 'cuda'
 
     timeseries = load_data(args.data_name)  # 加载数据
 
     dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride)  # 1440分钟
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     channels = [8, 16]
-    model = Pretrained(args, channels)
+    model = Pretrained(args, channels).to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 
     for epoch in range(args.num_epochs):
@@ -164,6 +169,7 @@ if __name__ == '__main__':
         for batch in dataloader: 
             # input is of shape [batch_size, seq_length, num_features=1], [8, 1440, 1]
             inputs = batch.unsqueeze(-1)
+            inputs = inputs.to(args.device)
             outputs1, outputs2 = model(inputs)
             loss = hierarchical_contrastive_loss(outputs1, outputs2)  # 对比损失
             optimizer.zero_grad()
