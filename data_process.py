@@ -112,53 +112,47 @@ class TimeSeriesDataset(Dataset):
     def __len__(self):
         # return (len(self.data) - self.seq_length)//self.stride + 1
 
-        return len(self.data) - self.seq_length
+        return len(self.data)
 
     def __getitem__(self, index):
         strided_idx = index * self.stride
-        seq = self.data[strided_idx: strided_idx + self.seq_length].values
+        # 如果 strided_idx + self.seq_length 超过 len(self.data)，会导致返回结果长度不够self.seq_length，导致DataLoader报错
+        if strided_idx + self.seq_length > len(self.data):
+            strided_idx = strided_idx - (strided_idx + self.seq_length - len(self.data))
+        seq = self.data[strided_idx: strided_idx + self.seq_length]
         # 正样本构建
         # shift_size = np.random.randint(-self.stride // 2, self.stride // 2)
         # # 注意下shift_size需要排除掉引起`OutOfBoundError`的取值
         # postive_contrast = self.data[strided_idx + shift_size, strided_idx + self.seq_length].values
 
         return torch.tensor(seq, dtype=torch.float32)
-def load_data(dataset):
-    data = pd.read_csv(dataset)
-    # 时间戳为13位时间戳
-    datetimes = pd.to_datetime(data.timestamp, unit="ms")
 
-    # 获取index为datetimes的pandas.DataFrame
-    data['timestamp'] = datetimes
+def load_data(data):
+    df = pd.read_csv(data, sep=',')
+    dataset = np.transpose(np.array(df))[1]
+    # replace missing data with previous data 
+    for i in range(np.shape(dataset)[0]):
+        if dataset[i] == '?':
+            dataset[i] = dataset[i-1]
+    dataset = dataset.astype(float)
+    return dataset
 
-    # 将缺失值填充为NaN
-    start = datetimes.min()
-    end = datetimes.max()
-    full_idx = pd.date_range(start, end, freq="min")
-    filled_data = data.set_index('timestamp').reindex(full_idx)
-
-    # 将缺失值进行插值、前后向填充
-    filled_data = filled_data.interpolate().ffill().bfill()
-
-    # 转换为pandas.Series对象
-    timeseries = pd.Series(filled_data['value'])  # Series对象
-
-    return timeseries
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seq_length', default='1440', type=int, help='The length of the time series')
-    parser.add_argument('--stride', default='1', type=int)
+    parser.add_argument('--seq_length', default=1440, type=int, help='The length of the time series')
+    parser.add_argument('--stride', default=1, type=int)
     parser.add_argument('--input_dim', default=1, type=int, help='input dimension')
     parser.add_argument('--hidden_dim', default=64, type=int, help='hidden dimension')
     parser.add_argument('--num_epochs', default=100, type=int, help='training iteration')
-    parser.add_argument('--batch_size', default=64, type=int, help='number of example per batch')
+    parser.add_argument('--batch_size', default=8, type=int, help='number of example per batch')
     parser.add_argument('--learning_rate', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--dropout', default=0.2, type=float)
-    parser.add_argument('--data_name', default='data/aiops_comp_service_adservice-grpc_count.csv', type=str, help='dataset')
+    parser.add_argument('--data_name', default='data/10.0.210.11.tps.csv', type=str, help='dataset')
     args = parser.parse_args()
 
     timeseries = load_data(args.data_name)  # 加载数据
+
     dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride)  # 1440分钟
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     channels = [8, 16]
@@ -167,14 +161,16 @@ if __name__ == '__main__':
 
     for epoch in range(args.num_epochs):
         sum_loss = 0
-        for batch in dataloader:
+        for batch in dataloader: 
+            # input is of shape [batch_size, seq_length, num_features=1], [8, 1440, 1]
             inputs = batch.unsqueeze(-1)
             outputs1, outputs2 = model(inputs)
             loss = hierarchical_contrastive_loss(outputs1, outputs2)  # 对比损失
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            optimizer.zero_grad()
             sum_loss += loss
+            print('Epoch:{}, loss={}'.format(epoch, loss))
         print('Epoch:{}, loss={}'.format(epoch, sum_loss))
 
     #  保存模型
