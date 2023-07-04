@@ -1,55 +1,64 @@
-import pandas as pd
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from torch.nn.utils import weight_norm
+import torch.nn.functional as F
 
-
-# 自定义预训练模型（TCN+实例对比）
-class Pretrained(nn.Module):
-    def __init__(self):
-        super(Pretrained, self).__init__()
-
+class Chomp1d(nn.Module):
+    def __init__(self, chomp_size):
+        super(Chomp1d, self).__init__()
+        self.chomp_size = chomp_size
 
     def forward(self, x):
-        ..
-        return x
+        return x[:, :, :-self.chomp_size].contiguous()
 
+class TemporalBlock(nn.Module):
+    def __init__(self, n_inputs, n_outputs, kernel_size, stride, dilation, padding, dropout=0.2):
+        super(TemporalBlock, self).__init__()
+        self.conv1 = weight_norm(nn.Conv1d(n_inputs, n_outputs, kernel_size,
+                                           stride=stride, padding=padding, dilation=dilation))
+        self.chomp1 = Chomp1d(padding)
+        self.relu1 = nn.LeakyReLU()
+        self.dropout1 = nn.Dropout(dropout)
 
-# 自定义数据集类
-class TimeSeriesDataset(Dataset):
-    def __init__(self, data, seq_length):
-        self.data = data
-        self.seq_length = seq_length
+        self.conv2 = weight_norm(nn.Conv1d(n_outputs, n_outputs, kernel_size,
+                                           stride=stride, padding=padding, dilation=dilation))
+        self.chomp2 = Chomp1d(padding)
+        self.relu2 = nn.LeakyReLU()
+        self.dropout2 = nn.Dropout(dropout)
 
-    def __len__(self):
-        return len(self.daata) - self.seq_length
+        self.net = nn.Sequential(self.conv1, self.chomp1, self.relu1, self.dropout1,
+                                 self.conv2, self.chomp2, self.relu2, self.dropout2)
+        self.downsample = nn.Conv1d(n_inputs, n_outputs, 1) if n_inputs != n_outputs else None
+        self.relu = nn.LeakyReLU()
+        self.init_weights()
 
-    def __getitem__(self, index):
-        seq = self.data[index:index + self.seq_length].values
-        return torch.tensor(seq, dtype=torch.float32)
+    def init_weights(self):
+        self.conv1.weight.data.normal_(0, 0.01)
+        self.conv2.weight.data.normal_(0, 0.01)
+        if self.downsample is not None:
+            self.downsample.weight.data.normal_(0, 0.01)
 
+    def forward(self, x):
+        out = self.net(x)
+        res = x if self.downsample is None else self.downsample(x)
+        return self.relu(out + res)
 
-data = pd.read_csv('farseer_cases/交易量指标/10.0.210.11.tps.csv')
-batch_size = 32
-# 按天划分时间序列
-seq_length = 1440  # 每个时间序列的长度为一天（1440分钟）
-dataset = TimeSeriesDataset(data['value'], seq_length)
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-num_epochs = 100
+class TemporalConvNet(nn.Module):
+    def __init__(self, num_inputs, num_channels, kernel_size=2, dropout=0.2):
+        super(TemporalConvNet, self).__init__()
+        layers = []
+        num_levels = len(num_channels)
+        for i in range(num_levels):
+            dilation_size = 2 ** i
+            in_channels = num_inputs if i == 0 else num_channels[i-1]
+            out_channels = num_channels[i]
+            layers += [TemporalBlock(in_channels, out_channels, kernel_size, stride=1,
+                                     dilation=dilation_size,
+                                     padding=(kernel_size-1) * dilation_size,
+                                     dropout=dropout)]
 
-# 初始化模型和优化器
-model = Pretrained()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+        self.network = nn.Sequential(*layers)
 
-for epoch in range(num_epochs):
-    for batch in dataloader:
-        inputs = batch.unsqueeze(1)  # 添加通道维度
-        outputs = model(inputs)
-        loss = ...  # 损失函数
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-# 保存模型
-torch.save(model.state_dict(), 'pretrained_model.pth')
+    def forward(self, x):
+        return self.network(x)
