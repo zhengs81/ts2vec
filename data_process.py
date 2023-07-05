@@ -130,14 +130,14 @@ class TimeSeriesDataset(Dataset):
 def load_data(dataset):
     data = pd.read_csv(dataset)
     # 时间戳为13位时间戳
-    datetimes = pd.to_datetime(data.timestamp, unit='ms')
+    datetimes = pd.to_datetime(data.timestamp, unit='s')
 
     # 获取index为datetimes的pandas.DataFrame
     data['timestamp'] = datetimes
     # 找全时间戳并填充
     start = datetimes.min()
     end = datetimes.max()
-    full_idx = pd.date_range(start, end, freq="60ms")
+    full_idx = pd.date_range(start, end, freq="min")
     filled_data = data.set_index('timestamp').reindex(full_idx)
     
     # 将缺失值进行插值、前后向填充
