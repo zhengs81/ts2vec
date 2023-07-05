@@ -116,13 +116,10 @@ class TimeSeriesDataset(Dataset):
     def __len__(self):
         # return (len(self.data) - self.seq_length)//self.stride + 1
 
-        return len(self.data)
+        return (len(self.data) - self.seq_length) // self.stride + 1
 
     def __getitem__(self, index):
         strided_idx = index * self.stride
-        # 如果 strided_idx + self.seq_length 超过 len(self.data)，会导致返回结果长度不够self.seq_length，导致DataLoader报错
-        if strided_idx + self.seq_length > len(self.data):
-            strided_idx = strided_idx - (strided_idx + self.seq_length - len(self.data))
         seq = self.data[strided_idx: strided_idx + self.seq_length]
         # 正样本构建
         # shift_size = np.random.randint(-self.stride // 2, self.stride // 2)
