@@ -8,6 +8,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from TCN import TemporalConvNet
+from utils.load_data import load_data
 
 # 自定义预训练模型（TCN+实例对比）
 class Pretrained(nn.Module):
@@ -125,29 +126,6 @@ class TimeSeriesDataset(Dataset):
         # postive_contrast = self.data[strided_idx + shift_size, strided_idx + self.seq_length].values
 
         return torch.tensor(seq, dtype=torch.float32)
-    
-
-def load_data(dataset):
-    data = pd.read_csv(dataset)
-    # 时间戳为13位时间戳
-    datetimes = pd.to_datetime(data.timestamp, unit='s')
-
-    # 获取index为datetimes的pandas.DataFrame
-    data['timestamp'] = datetimes
-    # 找全时间戳并填充
-    start = datetimes.min()
-    end = datetimes.max()
-    full_idx = pd.date_range(start, end, freq="min")
-    filled_data = data.set_index('timestamp').reindex(full_idx)
-    
-    # 将缺失值进行插值、前后向填充
-    filled_data = filled_data.interpolate().ffill().bfill()
-
-    # 转换为numpy对象
-    timeseries = np.array(filled_data['value'])  
-
-    return timeseries
-
 
 
 if __name__ == '__main__':
@@ -160,15 +138,15 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', default=8, type=int, help='number of example per batch')
     parser.add_argument('--learning_rate', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--dropout', default=0.2, type=float)
-    parser.add_argument('--data_name', default='data/10.0.210.11.tps.csv', type=str, help='dataset')
+    parser.add_argument('--num_dataset', default=1, type=int, help='number of dataset to process')
     parser.add_argument('--device', default='cpu', type=str)
     args = parser.parse_args()
     
     args.device = torch.device('cuda' if args.device == 'cuda' and torch.cuda.is_available() else 'cpu')
 
-    timeseries = load_data(args.data_name)  # 加载数据
+    timeseries = load_data(args.num_dataset)[1]  # 加载数据
 
-    dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride)  # 1440分钟
+    dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride) 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     channels = [8, 16]
     model = Pretrained(args, channels).to(args.device)
