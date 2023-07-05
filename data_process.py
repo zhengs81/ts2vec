@@ -46,14 +46,11 @@ class Encoder(nn.Module):
         # self.input_fc = nn.Linear(input_dims, hidden_dims)
         self.dropout = nn.Dropout(args.dropout)
         self.fc = nn.Linear(input_dims, hidden_dims)
-        self.network = TemporalConvNet(hidden_dims, channels)
+        self.network = TemporalConvNet(input_dims, hidden_dims, channels)
 
     def forward(self, x):  # x: B x T x hidd_dims
-        # 原码先Encode再dropout，但是初步试验结果不如先dropout再encode
-        # x = self.network(self.fc(x).permute(0,2,1))
-        # out = self.dropout(x)
-        x = self.dropout(self.fc(x))
-        out = self.network(x.permute(0, 2, 1))
+        # x = self.fc(x)
+        out = self.network(x.permute(0, 2, 1)) # fc去掉
         return out.permute(0, 2, 1)
 
 
@@ -114,6 +111,8 @@ class TimeSeriesDataset(Dataset):
         self.stride = stride
 
     def __len__(self):
+        # return (len(self.data) - self.seq_length)//self.stride + 1
+        # return len(self.data) - self.seq_length
         return (len(self.data) - self.seq_length) // self.stride + 1
 
     def __getitem__(self, index):
@@ -170,7 +169,7 @@ if __name__ == '__main__':
 
     dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride)  # 1440分钟
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    channels = [8, 16]
+    channels = [4, 8]
     model = Pretrained(args, channels).to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 
@@ -186,7 +185,7 @@ if __name__ == '__main__':
             loss.backward()
             optimizer.step()
             sum_loss += loss
-            print('Epoch:{}, loss={}'.format(epoch, loss))
+            print('Epoch:{}, batch_loss={}'.format(epoch, loss))
         print('Epoch:{}, loss={}'.format(epoch, sum_loss))
 
     #  保存模型
