@@ -49,6 +49,9 @@ class Encoder(nn.Module):
         self.network = TemporalConvNet(hidden_dims, channels)
 
     def forward(self, x):  # x: B x T x hidd_dims
+        # 原码先Encode再dropout，但是初步试验结果不如先dropout再encode
+        # x = self.network(self.fc(x).permute(0,2,1))
+        # out = self.dropout(x)
         x = self.dropout(self.fc(x))
         out = self.network(x.permute(0, 2, 1))
         return out.permute(0, 2, 1)
@@ -153,8 +156,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', default='cpu', type=str)
     args = parser.parse_args()
     
-    if not torch.cuda.is_available():
-        args.device = 'cuda'
+    args.device = torch.device('cuda' if args.device == 'cuda' and torch.cuda.is_available() else 'cpu')
 
     timeseries = load_data(args.data_name)  # 加载数据
 
