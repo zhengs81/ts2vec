@@ -15,6 +15,7 @@ class Chomp1d(nn.Module):
 class TemporalBlock(nn.Module):
     def __init__(self, n_inputs, n_outputs, kernel_size, stride, dilation, padding, dropout=0.2):
         super(TemporalBlock, self).__init__()
+
         self.conv1 = weight_norm(nn.Conv1d(n_inputs, n_outputs, kernel_size,
                                            stride=stride, padding=padding, dilation=dilation))
         self.chomp1 = Chomp1d(padding)
@@ -45,20 +46,25 @@ class TemporalBlock(nn.Module):
         return self.relu(out + res)
 
 class TemporalConvNet(nn.Module):
-    def __init__(self, num_inputs, num_channels, kernel_size=2, dropout=0.2):
+    def __init__(self, num_inputs, hidden_dim, num_channels, kernel_size=2, dropout=0.2):
         super(TemporalConvNet, self).__init__()
         layers = []
         num_levels = len(num_channels)
+        Maxpool = torch.nn.AdaptiveMaxPool1d(1)
+        self.dropout = nn.Dropout(dropout)
+        self.fc = nn.Linear(num_inputs, hidden_dim)
+        dilation_size = 1
         for i in range(num_levels):
-            dilation_size = 2 ** i
+            # dilation_size = 2 ** i
             in_channels = num_inputs if i == 0 else num_channels[i-1]
             out_channels = num_channels[i]
             layers += [TemporalBlock(in_channels, out_channels, kernel_size, stride=1,
                                      dilation=dilation_size,
                                      padding=(kernel_size-1) * dilation_size,
                                      dropout=dropout)]
+            dilation_size *= 2
 
-        self.network = nn.Sequential(*layers)
+        self.network = nn.Sequential(*layers, Maxpool, self.fc, self.dropout)
 
     def forward(self, x):
         return self.network(x)
