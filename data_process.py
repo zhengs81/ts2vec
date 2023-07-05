@@ -114,8 +114,6 @@ class TimeSeriesDataset(Dataset):
         self.stride = stride
 
     def __len__(self):
-        # return (len(self.data) - self.seq_length)//self.stride + 1
-
         return (len(self.data) - self.seq_length) // self.stride + 1
 
     def __getitem__(self, index):
@@ -127,16 +125,29 @@ class TimeSeriesDataset(Dataset):
         # postive_contrast = self.data[strided_idx + shift_size, strided_idx + self.seq_length].values
 
         return torch.tensor(seq, dtype=torch.float32)
+    
 
-def load_data(data):
-    df = pd.read_csv(data, sep=',')
-    dataset = np.transpose(np.array(df))[1]
-    # replace missing data with previous data 
-    for i in range(np.shape(dataset)[0]):
-        if dataset[i] == '?':
-            dataset[i] = dataset[i-1]
-    dataset = dataset.astype(float)
-    return dataset
+def load_data(dataset):
+    data = pd.read_csv(dataset)
+    # 时间戳为13位时间戳
+    datetimes = pd.to_datetime(data.timestamp, unit='ms')
+
+    # 获取index为datetimes的pandas.DataFrame
+    data['timestamp'] = datetimes
+    # 找全时间戳并填充
+    start = datetimes.min()
+    end = datetimes.max()
+    full_idx = pd.date_range(start, end, freq="60ms")
+    filled_data = data.set_index('timestamp').reindex(full_idx)
+    
+    # 将缺失值进行插值、前后向填充
+    filled_data = filled_data.interpolate().ffill().bfill()
+
+    # 转换为numpy对象
+    timeseries = np.array(filled_data['value'])  
+
+    return timeseries
+
 
 
 if __name__ == '__main__':
