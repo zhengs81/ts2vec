@@ -11,11 +11,12 @@ from TCN import TemporalConvNet
 
 # 自定义预训练模型（TCN+实例对比）
 class Pretrained(nn.Module):
-    def __init__(self, args, channels, temporal_unit = 0, ):
+    def __init__(self, args, channels, temporal_unit = 0, device='cpu'):
         super(Pretrained, self).__init__()
         self.conv = nn.Conv1d(in_channels=1, out_channels=16, kernel_size=3)
         self.temporal_unit = temporal_unit
         self.net = Encoder(channels, args.input_dim, args, args.hidden_dim)
+        self.device = device
 
     def forward(self, x):
         ts_l = x.size(1)
@@ -45,11 +46,11 @@ class Encoder(nn.Module):
         # self.input_fc = nn.Linear(input_dims, hidden_dims)
         self.dropout = nn.Dropout(args.dropout)
         self.fc = nn.Linear(input_dims, hidden_dims)
-        self.network = TemporalConvNet(hidden_dims, channels)
+        self.network = TemporalConvNet(input_dims, hidden_dims, channels)
 
     def forward(self, x):  # x: B x T x hidd_dims
-        x = self.dropout(self.fc(x))
-        out = self.network(x.permute(0, 2, 1))
+        # x = self.fc(x)
+        out = self.network(x.permute(0, 2, 1)) # fc去掉
         return out.permute(0, 2, 1)
 
 
@@ -111,12 +112,12 @@ class TimeSeriesDataset(Dataset):
 
     def __len__(self):
         # return (len(self.data) - self.seq_length)//self.stride + 1
-
-        return len(self.data) - self.seq_length
+        # return len(self.data) - self.seq_length
+        return (len(self.data) - self.seq_length) // self.stride + 1
 
     def __getitem__(self, index):
         strided_idx = index * self.stride
-        seq = self.data[strided_idx: strided_idx + self.seq_length].values
+        seq = self.data[strided_idx: strided_idx + self.seq_length]
         # 正样本构建
         # shift_size = np.random.randint(-self.stride // 2, self.stride // 2)
         # # 注意下shift_size需要排除掉引起`OutOfBoundError`的取值
@@ -126,12 +127,11 @@ class TimeSeriesDataset(Dataset):
 def load_data(dataset):
     data = pd.read_csv(dataset)
     # 时间戳为13位时间戳
-    datetimes = pd.to_datetime(data.timestamp, unit="ms")
+    datetimes = pd.to_datetime(data.timestamp, unit='ms')
 
     # 获取index为datetimes的pandas.DataFrame
     data['timestamp'] = datetimes
-
-    # 将缺失值填充为NaN
+    # 找全时间戳并填充
     start = datetimes.min()
     end = datetimes.max()
     full_idx = pd.date_range(start, end, freq="min")
@@ -140,29 +140,31 @@ def load_data(dataset):
     # 将缺失值进行插值、前后向填充
     filled_data = filled_data.interpolate().ffill().bfill()
 
-    # 转换为pandas.Series对象
-    timeseries = pd.Series(filled_data['value'])  # Series对象
+    # 转换为numpy对象
+    timeseries = np.array(filled_data['value'])
 
     return timeseries
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seq_length', default='1440', type=int, help='The length of the time series')
-    parser.add_argument('--stride', default='1', type=int)
+    parser.add_argument('--seq_length', default=1440, type=int, help='The length of the time series')
+    parser.add_argument('--stride', default=1, type=int)
     parser.add_argument('--input_dim', default=1, type=int, help='input dimension')
     parser.add_argument('--hidden_dim', default=64, type=int, help='hidden dimension')
     parser.add_argument('--num_epochs', default=100, type=int, help='training iteration')
     parser.add_argument('--batch_size', default=64, type=int, help='number of example per batch')
-    parser.add_argument('--learning_rate', default=1e-3, type=float, help='learning rate')
+    parser.add_argument('--learning_rate', default=3e-3, type=float, help='learning rate')
     parser.add_argument('--dropout', default=0.2, type=float)
     parser.add_argument('--data_name', default='data/aiops_comp_service_adservice-grpc_count.csv', type=str, help='dataset')
+    parser.add_argument('--device', default='cpu', type=str)
     args = parser.parse_args()
+    args.device = torch.device('cuda' if args.device == 'cuda' and torch.cuda.is_available() else 'cpu')
 
     timeseries = load_data(args.data_name)  # 加载数据
     dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride)  # 1440分钟
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    channels = [8, 16]
-    model = Pretrained(args, channels)
+    channels = [4, 8]
+    model = Pretrained(args, channels).to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 
     for epoch in range(args.num_epochs):
@@ -171,10 +173,11 @@ if __name__ == '__main__':
             inputs = batch.unsqueeze(-1)
             outputs1, outputs2 = model(inputs)
             loss = hierarchical_contrastive_loss(outputs1, outputs2)  # 对比损失
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            optimizer.zero_grad()
             sum_loss += loss
+            print('Epoch:{}, batch_loss={}'.format(epoch, loss))
         print('Epoch:{}, loss={}'.format(epoch, sum_loss))
 
     #  保存模型
