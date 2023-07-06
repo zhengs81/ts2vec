@@ -52,7 +52,7 @@ class Encoder(nn.Module):
         self.network = TemporalConvNet(input_dims, hidden_dims, channels)
 
     def forward(self, x):  # x: B x T x hidd_dims
-        # x = self.fc(x)
+        # x = self.dropout(self.fc(x))
         out = self.network(x.permute(0, 2, 1)) # fc去掉
         return out.permute(0, 2, 1)
 
@@ -161,7 +161,7 @@ if __name__ == '__main__':
 
     dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride) 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    channels = [4, 8]
+    channels = [8, 16]
     model = Pretrained(args, channels).to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 
