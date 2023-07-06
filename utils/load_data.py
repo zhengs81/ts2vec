@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import glob
-
+import math
 
 def _load_files(selected_files):
     results = []
@@ -22,12 +22,17 @@ def _load_files(selected_files):
         end = datetimes.max()
         full_idx = pd.date_range(start, end, freq="min")
         filled_data = data.set_index('timestamp').reindex(full_idx)
-
+        
         # 将缺失值进行插值、前后向填充
         filled_data = filled_data.interpolate().ffill().bfill()
 
         # 转换为numpy对象
-        timeseries = np.array(filled_data['value'])
+        timeseries = np.array(filled_data['value'])  
+        # normalize
+        mean = np.mean(timeseries)
+        var = np.var(timeseries)
+        timeseries = (timeseries - mean) / math.sqrt(var)
+        
         results.append(timeseries)
 
     return results
@@ -39,7 +44,6 @@ def load_data(num_datasets):
     selected_files = files[: min(num_datasets, len(files))]
 
     return _load_files(selected_files)
-
 
 if __name__ == '__main__':
     load_data(1)

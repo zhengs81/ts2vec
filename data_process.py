@@ -10,6 +10,8 @@ from torch.utils.data import Dataset, DataLoader
 from TCN import TemporalConvNet
 from utils.load_data import load_data
 
+from bisect import bisect_left
+
 # 自定义预训练模型（TCN+实例对比）
 class Pretrained(nn.Module):
     def __init__(self, args, channels, temporal_unit = 0, device='cpu'):
@@ -107,24 +109,37 @@ def temporal_contrastive_loss(z1, z2):
 # 自定义数据集类
 class TimeSeriesDataset(Dataset):
     def __init__(self, data, seq_length, stride):
+        # data is an list of array, with each array being data from one file
         self.data = data
+        total = 0
+        self.suffix_len = []
+        for d in self.data:
+            total += len(d)
+            self.suffix_len.append(total)
         self.seq_length = seq_length
         self.stride = stride
 
     def __len__(self):
-        # return (len(self.data) - self.seq_length)//self.stride + 1
-        # return len(self.data) - self.seq_length
-        return (len(self.data) - self.seq_length) // self.stride + 1
+        lengths = [len(l) for l in self.data]
+        return (sum(lengths) - self.seq_length) // self.stride + 1
 
     def __getitem__(self, index):
-        strided_idx = index * self.stride
-        seq = self.data[strided_idx: strided_idx + self.seq_length]
+        strided_idx = index * self.stride # idx in the whole dataset
+        data_idx = bisect_left(self.suffix_len, strided_idx) # which dataset to use
+        assert data_idx < len(self.data)
+        dataset_len = len(self.data[data_idx]) # length of the chosen dataset
+        prev_len = self.suffix_len[data_idx - 1] if data_idx else 0 # total length of previous datasets
+        curr_idx = strided_idx - prev_len # idx in chosen dataset
+        offset = curr_idx - min(dataset_len - self.seq_length, curr_idx)
+        seq = self.data[data_idx][curr_idx - offset: curr_idx + self.seq_length - offset]
+
         # 正样本构建
         # shift_size = np.random.randint(-self.stride // 2, self.stride // 2)
         # # 注意下shift_size需要排除掉引起`OutOfBoundError`的取值
         # postive_contrast = self.data[strided_idx + shift_size, strided_idx + self.seq_length].values
 
         return torch.tensor(seq, dtype=torch.float32)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -133,18 +148,18 @@ if __name__ == '__main__':
     parser.add_argument('--input_dim', default=1, type=int, help='input dimension')
     parser.add_argument('--hidden_dim', default=64, type=int, help='hidden dimension')
     parser.add_argument('--num_epochs', default=100, type=int, help='training iteration')
-    parser.add_argument('--batch_size', default=64, type=int, help='number of example per batch')
-    parser.add_argument('--learning_rate', default=3e-3, type=float, help='learning rate')
+    parser.add_argument('--batch_size', default=8, type=int, help='number of example per batch')
+    parser.add_argument('--learning_rate', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--dropout', default=0.2, type=float)
-    parser.add_argument('--num_dataset', default=1, type=int, help='number of dataset to process')
-    parser.add_argument('--data_name', default='data/aiops_comp_service_adservice-grpc_count.csv', type=str, help='dataset')
+    parser.add_argument('--num_dataset', default=2, type=int, help='number of dataset to process')
     parser.add_argument('--device', default='cpu', type=str)
     args = parser.parse_args()
+    
     args.device = torch.device('cuda' if args.device == 'cuda' and torch.cuda.is_available() else 'cpu')
 
-    # timeseries = load_data(args.data_name)  # 加载数据
-    timeseries = load_data(args.num_dataset)[1]  # 加载数据
-    dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride)  # 1440分钟
+    timeseries = load_data(args.num_dataset)  # 加载数据
+
+    dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride) 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     channels = [8, 16]
     model = Pretrained(args, channels).to(args.device)
@@ -152,7 +167,8 @@ if __name__ == '__main__':
 
     for epoch in range(args.num_epochs):
         sum_loss = 0
-        for batch in dataloader:
+        for batch in dataloader: 
+            # input is of shape [batch_size, seq_length, num_features=1], [8, 1440, 1]
             inputs = batch.unsqueeze(-1)
             inputs = inputs.to(args.device)
             outputs1, outputs2 = model(inputs)
