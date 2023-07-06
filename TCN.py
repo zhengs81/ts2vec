@@ -53,16 +53,15 @@ class TemporalConvNet(nn.Module):
         Maxpool = torch.nn.AdaptiveMaxPool1d(1)
         self.dropout = nn.Dropout(dropout)
         self.fc = nn.Linear(num_inputs, hidden_dim)
-        dilation_size = 1
+
         for i in range(num_levels):
-            # dilation_size = 2 ** i
+            dilation_size = 2 ** i
             in_channels = num_inputs if i == 0 else num_channels[i-1]
             out_channels = num_channels[i]
             layers += [TemporalBlock(in_channels, out_channels, kernel_size, stride=1,
                                      dilation=dilation_size,
                                      padding=(kernel_size-1) * dilation_size,
                                      dropout=dropout)]
-            dilation_size *= 2
 
         self.network = nn.Sequential(*layers, Maxpool, self.fc, self.dropout)
 
