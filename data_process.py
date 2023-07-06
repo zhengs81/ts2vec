@@ -50,7 +50,7 @@ class Encoder(nn.Module):
         self.network = TemporalConvNet(input_dims, hidden_dims, channels)
 
     def forward(self, x):  # x: B x T x hidd_dims
-        # x = self.fc(x)
+        # x = self.dropout(self.fc(x))
         out = self.network(x.permute(0, 2, 1)) # fc去掉
         return out.permute(0, 2, 1)
 
