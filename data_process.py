@@ -109,7 +109,7 @@ def temporal_contrastive_loss(z1, z2):
 # 自定义数据集类
 class TimeSeriesDataset(Dataset):
     def __init__(self, data, seq_length, stride):
-        # data is an array of array, with each array being data from one file
+        # data is an list of array, with each array being data from one file
         self.data = data
         total = 0
         self.suffix_len = []
