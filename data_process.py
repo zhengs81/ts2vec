@@ -1,5 +1,5 @@
 import argparse
-
+import random
 import numpy as np
 import pandas as pd
 import torch
@@ -151,12 +151,16 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', default=8, type=int, help='number of example per batch')
     parser.add_argument('--learning_rate', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--dropout', default=0.2, type=float)
+    parser.add_argument('--seed', default=100, type=int, help='random seed')
     parser.add_argument('--num_dataset', default=2, type=int, help='number of dataset to process')
     parser.add_argument('--device', default='cpu', type=str)
     args = parser.parse_args()
     
     args.device = torch.device('cuda' if args.device == 'cuda' and torch.cuda.is_available() else 'cpu')
-
+    if args.seed is not None:
+        random.seed(args.seed)
+        np.random.seed(args.seed)
+        torch.manual_seed(args.seed)
     timeseries = load_data(args.num_dataset)  # 加载数据
 
     dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride) 
