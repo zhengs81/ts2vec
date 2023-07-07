@@ -30,6 +30,8 @@ class Pretrained(nn.Module):
         out2 = out2[:, -crop_l:]
 
         return out1, out2
+    
+    
 def take_per_row(A, indx, num_elem):
     all_indx = indx[:, None] + np.arange(num_elem)
     return A[torch.arange(all_indx.shape[0])[:, None], all_indx]

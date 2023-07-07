@@ -38,12 +38,21 @@ def _load_files(selected_files):
     return results
 
 
-def load_data(num_datasets):
+def load_train_data(num_datasets):
     files = glob.glob("data/*.csv")
 
     selected_files = files[: min(num_datasets, len(files))]
 
     return _load_files(selected_files)
 
+def load_test_data(num_datasets):
+    files = glob.glob("data/test/*.csv")
+    print("files: ",files)
+
+    selected_files = files[: min(num_datasets, len(files))]
+
+    return _load_files(selected_files)
+
+
 if __name__ == '__main__':
-    load_data(1)
+    load_train_data(1)

@@ -1,8 +1,8 @@
 import argparse
 import torch
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from utils.load_data import load_data
+from torch.utils.data import DataLoader
+from utils.load_data import load_train_data
 from model.pretrained import Pretrained
 from loss.hierarchical_contrastive_loss import hierarchical_contrastive_loss
 from dataset.timeseries_dataset import TimeSeriesDataset
@@ -15,7 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('--input_dim', default=1, type=int, help='input dimension')
     parser.add_argument('--hidden_dim', default=64, type=int, help='hidden dimension')
     parser.add_argument('--num_epochs', default=100, type=int, help='training iteration')
-    parser.add_argument('--batch_size', default=8, type=int, help='number of example per batch')
+    parser.add_argument('--batch_size', default=64, type=int, help='number of example per batch')
     parser.add_argument('--learning_rate', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--dropout', default=0.2, type=float)
     parser.add_argument('--num_dataset', default=2, type=int, help='number of dataset to process')
@@ -24,13 +24,14 @@ if __name__ == '__main__':
     
     args.device = torch.device('cuda' if args.device == 'cuda' and torch.cuda.is_available() else 'cpu')
 
-    timeseries = load_data(args.num_dataset)  # 加载数据
+    timeseries = load_train_data(args.num_dataset)  # 加载数据
 
     dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride) 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     channels = [4, 8]
     model = Pretrained(args, channels).to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+    # torch.save(args, 'saved_models/pretrained_model_params.pt')
 
     for epoch in range(args.num_epochs):
         sum_loss = 0
@@ -48,4 +49,4 @@ if __name__ == '__main__':
         print('Epoch:{}, loss={}'.format(epoch, sum_loss))
 
     #  保存模型
-    torch.save(model.state_dict(), 'pretrained_model.pt')
+    torch.save(model.state_dict(), 'saved_models/pretrained_model.pt')
