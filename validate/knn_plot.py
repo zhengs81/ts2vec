@@ -23,7 +23,7 @@ def load_model(path, gpu, params):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data', default=1, type=int, help='number of files to test')
-    parser.add_argument('--model', default="saved_models/pretrained_model.pt", type=str, help='The path to model parameters')
+    parser.add_argument('--model', default="../saved_models/pretrained_model.pt", type=str, help='The path to model parameters')
     parser.add_argument('--gpu', default=0, type=int, help='GPU index to use, if CUDA is enabled')
     parser.add_argument('--stride', default=72, type=int)
     parser.add_argument('--seq_length', default=144, type=int, help='GPU index to use, if CUDA is enabled')
@@ -36,10 +36,10 @@ if __name__ == '__main__':
     dataset = TimeSeriesTestDataset(data, args.seq_length, args.stride) 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    params = torch.load("saved_models/pretrained_model_param.pt")
+    params = torch.load("../saved_models/pretrained_model_param.pt")
     model = load_model(args.model, args.gpu, params)
 
-    for metadata, batch in dataloader: # batch [128, 144]
+    for metadata, batch in dataloader: # batch [128, 144, 1]
         # metadata is list of 2 tensors
         input = batch.unsqueeze(-1).to(args.device)
         output = model.net(input) # output [128, 64, 8]

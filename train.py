@@ -28,10 +28,10 @@ if __name__ == '__main__':
 
     dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride) 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    channels = [4, 8]
+    channels = [2**i for i in range(1, 11)]
     model = Pretrained(args, channels).to(args.device)
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    # torch.save(args, 'saved_models/pretrained_model_params.pt')
+    torch.save(args, 'saved_models/pretrained_model_params.pt')
 
     for epoch in range(args.num_epochs):
         sum_loss = 0
