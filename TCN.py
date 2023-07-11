@@ -71,4 +71,4 @@ class TemporalConvNet(nn.Module):
         out1 = self.TextCNN(x) # x = [B, last_out_channel, T]
         out1 = out1.permute(0, 2, 1) # x = [B, T, last_out_channel]
         res = self.FC(out1) # x = [B, T, hidden_dim(64)]
-        return res
+        return res.permute(0, 2, 1)
