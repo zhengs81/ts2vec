@@ -2,9 +2,11 @@ import numpy as np
 import pandas as pd
 import glob
 import math, os
+import json
 
 def _load_files(selected_files):
     results = []
+    metadata = {}
     for f in selected_files:
         data = pd.read_csv(f)
 
@@ -44,9 +46,17 @@ def _load_files(selected_files):
         mean = np.mean(timeseries)
         var = np.var(timeseries)
         timeseries = (timeseries - mean) / math.sqrt(var)
+
+        # save mean and variance 
+        metadata[f] = (mean, var)
         
         results.append(timeseries)
 
+    # save mean and variance 
+    with open("data/train/mean_var.json", 'w') as file:
+        # Write the dictionary to the file as JSON
+        json.dump(metadata, file)
+    
     return results
 
 def read_files_in_folder(folder_path):
