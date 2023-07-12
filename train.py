@@ -10,21 +10,22 @@ from dataset.timeseries_dataset import TimeSeriesDataset
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--seq_length', default=1440, type=int, help='The length of the time series')
+    parser.add_argument('--seq_length', default=20, type=int, help='The length of the time series')
     parser.add_argument('--stride', default=1, type=int)
     parser.add_argument('--input_dim', default=1, type=int, help='input dimension')
     parser.add_argument('--hidden_dim', default=64, type=int, help='hidden dimension')
     parser.add_argument('--num_epochs', default=100, type=int, help='training iteration')
-    parser.add_argument('--batch_size', default=64, type=int, help='number of example per batch')
+    parser.add_argument('--batch_size', default=8, type=int, help='number of example per batch')
     parser.add_argument('--learning_rate', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--dropout', default=0.2, type=float)
     parser.add_argument('--num_dataset', default=2, type=int, help='number of dataset to process')
     parser.add_argument('--device', default='cpu', type=str)
+    parser.add_argument('--train_dir', default='data/', type=str, help='path to dir where the train data is stored')
     args = parser.parse_args()
     
     args.device = torch.device('cuda' if args.device == 'cuda' and torch.cuda.is_available() else 'cpu')
 
-    timeseries = load_train_data(args.num_dataset)  # 加载数据
+    timeseries = load_train_data(args.num_dataset, args.train_dir)  # 加载数据
 
     dataset = TimeSeriesDataset(timeseries, args.seq_length, args.stride) 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
@@ -33,6 +34,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
     torch.save(args, 'saved_models/pretrained_model_params.pt')
 
+    print("Start Training ...")
     for epoch in range(args.num_epochs):
         sum_loss = 0
         for batch in dataloader: 
