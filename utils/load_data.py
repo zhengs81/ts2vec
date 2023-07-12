@@ -46,7 +46,7 @@ def load_train_data(num_datasets, path):
     return _load_files(selected_files)
 
 def load_test_data(num_datasets):
-    files = glob.glob("data/test/*.csv")
+    files = glob.glob("data/test/*.csv") # 注意，如果在validate里跑，要改成../data .....
     print("files: ",files)
 
     selected_files = files[: min(num_datasets, len(files))]
