@@ -27,12 +27,10 @@ def validate_files(file_paths):
                 invalid_files.append(file_path)
                 continue
             
-            # Check timestamp column format
-            if df['timestamp'].apply(lambda x: isinstance(x, str)).all():
-                df['timestamp'] = df['timestamp'].str.replace(r'\D', '', regex=True)
-                if df['timestamp'].apply(lambda x: len(x) not in [10, 13]).any():
-                    invalid_files.append(file_path)
-                    continue
+            # Check timestamp column format，brute
+            if (len(str(df['timestamp'][0])) != 10 and len(str(df['timestamp'][0])) != 13) or str(df['timestamp'][0])[0] != "1":
+                invalid_files.append(file_path)
+                continue
             
             # Check if timestamp column contains datetime values
             if pd.api.types.is_datetime64_any_dtype(df['timestamp']):
