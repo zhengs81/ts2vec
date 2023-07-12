@@ -7,6 +7,9 @@ import math, os
 import pandas as pd
 
 def validate_files(file_paths):
+    """
+    This function checks all train files for their format
+    """
     invalid_files = []
     
     for file_path in file_paths:
@@ -52,7 +55,8 @@ def read_files_in_folder(folder_path):
     # Iterate over all files in the folder
     for root, _, files in os.walk(folder_path):
         for file_name in files:
-            res.append(os.path.join(root, file_name))
+            if file_name != '.DS_Store' and not file_name.endswith(".zip"):
+                res.append(os.path.join(root, file_name))
     return res
 
 def main(path):
