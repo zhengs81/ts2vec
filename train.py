@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', default=8, type=int, help='number of example per batch')
     parser.add_argument('--learning_rate', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--dropout', default=0.2, type=float)
-    parser.add_argument('--num_dataset', default=-1, type=int, help='number of dataset to process, -1 to all')
+    parser.add_argument('--num_dataset', default=-1, type=int, help='number of dataset to process, -1 for all')
     parser.add_argument('--device', default='cpu', type=str)
     parser.add_argument('--train_dir', default='data/train', type=str, help='path to dir where the train data is stored')
     args = parser.parse_args()
