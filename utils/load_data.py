@@ -7,7 +7,11 @@ import json
 def _load_files(selected_files):
     results = []
     metadata = {}
+    i = 1
     for f in selected_files:
+        if i % 1000 == 0:
+            print("Number of files loaded: ", i)
+        i += 1
         data = pd.read_csv(f)
 
         # if no header 
@@ -45,17 +49,21 @@ def _load_files(selected_files):
         # normalize
         mean = np.mean(timeseries)
         var = np.var(timeseries)
-        timeseries = (timeseries - mean) / math.sqrt(var)
+        timeseries = (timeseries - mean) / (math.sqrt(var) + 1e-10)
 
         # save mean and variance 
         metadata[f] = (mean, var)
         
         results.append(timeseries)
 
-    # save mean and variance 
-    with open("data/train/mean_var.json", 'w') as file:
-        # Write the dictionary to the file as JSON
-        json.dump(metadata, file)
+    try:
+        # save mean and variance 
+        with open("data/train/mean_var.json", 'w') as file:
+            # Write the dictionary to the file as JSON
+            json.dump(metadata, file)
+            print("Successfully dump mean and variance to -- data/train/mean_var.json")
+    except Exception as e:
+        print("An error occurred during DELETE:", str(e))
     
     return results
 
@@ -76,8 +84,19 @@ def load_train_data(num_datasets, path):
     load all files under path, if num_datasets >= 0, then only fetch num_datasets files.
     If num_datasets < 0, load all files
     """
+    # Delete mean variance file if exists 
+    mean_path = path + "/mean_var.json"
+    if os.path.exists(mean_path):
+        print("mean_var.json exists, try to DELETE")
+        try:
+            # Delete the file
+            os.remove(mean_path)
+            print("File deleted successfully")
+        except Exception as e:
+            print("An error occurred during DELETE:", str(e))
+
     files = read_files_in_folder(path)
-    print("number of train files: ", len(files))
+    print("Number of train files: ", len(files))
 
     selected_files = files[: min(num_datasets, len(files))] if num_datasets >= 0 else files
 
@@ -85,7 +104,7 @@ def load_train_data(num_datasets, path):
 
 def load_test_data(num_datasets):
     files = glob.glob("data/test/*") # 注意，如果在validate里跑，要改成../data .....
-    print("number of test files: ",len(files))
+    print("Number of test files: ",len(files))
 
     selected_files = files[: min(num_datasets, len(files))]
 
@@ -93,5 +112,5 @@ def load_test_data(num_datasets):
 
 
 if __name__ == '__main__':
-    load_train_data(5, 'data')
+    load_train_data(-1, 'data/train')
     # print(read_files_in_folder("../data"))
