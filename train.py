@@ -20,7 +20,7 @@ if __name__ == '__main__':
     parser.add_argument('--dropout', default=0.2, type=float)
     parser.add_argument('--num_dataset', default=2, type=int, help='number of dataset to process')
     parser.add_argument('--device', default='cpu', type=str)
-    parser.add_argument('--train_dir', default='data/', type=str, help='path to dir where the train data is stored')
+    parser.add_argument('--train_dir', default='data/train', type=str, help='path to dir where the train data is stored')
     args = parser.parse_args()
     
     args.device = torch.device('cuda' if args.device == 'cuda' and torch.cuda.is_available() else 'cpu')
