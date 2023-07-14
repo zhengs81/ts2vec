@@ -58,12 +58,12 @@ def _load_files(selected_files):
 
     try:
         # save mean and variance 
-        with open("data/train/mean_var.json", 'w') as file:
+        with open(os.getcwd() + "/data/train/mean_var.json", 'w') as file:
             # Write the dictionary to the file as JSON
             json.dump(metadata, file)
             print("Successfully dump mean and variance to -- data/train/mean_var.json")
     except Exception as e:
-        print("An error occurred during DELETE:", str(e))
+        print("An error occurred during dump:", str(e))
     
     return results
 

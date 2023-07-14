@@ -31,11 +31,7 @@ class TimeSeriesDataset(Dataset):
         offset = curr_idx - min(dataset_len - self.seq_length, curr_idx)
         seq = self.data[data_idx][curr_idx - offset: curr_idx + self.seq_length - offset]
 
-        # 正样本构建
-        # shift_size = np.random.randint(-self.stride // 2, self.stride // 2)
-        # # 注意下shift_size需要排除掉引起`OutOfBoundError`的取值
-        # postive_contrast = self.data[strided_idx + shift_size, strided_idx + self.seq_length].values
-
+        assert len(seq) == self.seq_length
         return torch.tensor(seq, dtype=torch.float32)
     
 
