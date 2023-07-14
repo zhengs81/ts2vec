@@ -24,6 +24,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     args.device = torch.device('cuda' if args.device == 'cuda' and torch.cuda.is_available() else 'cpu')
+    print("Training on: ", args.device)
 
     timeseries = load_train_data(args.num_dataset, args.train_dir)  # 加载数据
 
